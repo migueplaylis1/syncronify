@@ -1,0 +1,66 @@
+# Blueprint de Render: crea la base de datos, la web app y el worker programado.
+# Después de desplegar, define en el panel los valores marcados con sync: false.
+databases:
+  - name: syncronify-db
+    databaseName: syncronify
+    user: syncronify
+    plan: basic-256mb
+
+services:
+  - type: web
+    name: syncronify-web
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: DATABASE_URL
+        fromDatabase:
+          name: syncronify-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: SESSION_HTTPS_ONLY
+        value: "true"
+      - key: FRONTEND_URL
+        sync: false          # https://tu-app.onrender.com
+      - key: SPOTIFY_REDIRECT_URI
+        sync: false          # https://tu-app.onrender.com/api/spotify/callback
+      - key: SPOTIFY_CLIENT_ID
+        sync: false
+      - key: SPOTIFY_CLIENT_SECRET
+        sync: false
+      - key: SPOTIFY_ITEMS_SEGMENT
+        value: items
+      - key: APP_TIMEZONE
+        value: America/Caracas
+      - key: DEFAULT_SYNC_INTERVAL_HOURS
+        value: "12"
+
+  - type: cron
+    name: syncronify-worker
+    runtime: python
+    plan: starter
+    schedule: "0 * * * *"    # cada hora; el script respeta el intervalo configurado en la app
+    buildCommand: pip install -r requirements.txt
+    startCommand: python worker.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: DATABASE_URL
+        fromDatabase:
+          name: syncronify-db
+          property: connectionString
+      - key: SPOTIFY_CLIENT_ID
+        sync: false
+      - key: SPOTIFY_CLIENT_SECRET
+        sync: false
+      - key: SPOTIFY_ITEMS_SEGMENT
+        value: items
+      - key: APP_TIMEZONE
+        value: America/Caracas
+      - key: DEFAULT_SYNC_INTERVAL_HOURS
+        value: "12"
